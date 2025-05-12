@@ -16,9 +16,9 @@ class ColoredTrailsModel(Model):
         self.running = False
         self.needs_pool = {}
         self.offers_pool = {}
+        self.offers_mutex = 3
         # goal position (bottom-right corner)
         self.goal_pos = (6, 4)
-
         # Generate grid with random tile colors
         self.tile_colors = {}
         for x in range(self.grid_width):
@@ -34,28 +34,20 @@ class ColoredTrailsModel(Model):
         }
 
         for agent_id, info in self.agents_intial_infos.items():
-            agent = PlayerAgent(agent_id, info["pos"], info["tokens"], self)
+            agent = PlayerAgent(agent_id, info["tokens"], self)
             self.grid.place_agent(agent, info["pos"])
             self.schedule.add(agent)
-
+        print("[!] : Agents intiated")
+        
     def step(self):
-
-        self.schedule.step()    # Agents decide on paths and exchange requests
-        # Assigning a random order for negociations
-        random_order = random.sample(range(0, len(self.agents_intial_infos)), len(self.agents_intial_infos))
-        for agent_id in random_order:
-            agent = self.get_agent_by_id(agent_id)
-            agent.trade(self.needs_pool, self.offers_pool)
+        self.schedule.step()   
         self.needs_pool.clear()
         self.offers_pool.clear()
-        self.schedule.advance() # Agents make exchanges and move
-
         # End conditions
         blocked_agents = [a for a in self.schedule.agents if a.blocked_steps >= 3]
         if any(a.goal_reached for a in self.schedule.agents) or blocked_agents:
             self.running = False
     
-
     def broadcast_needs(self, sender_id, needs):
         self.needs_pool[sender_id] = needs
 
@@ -63,3 +55,4 @@ class ColoredTrailsModel(Model):
         for agent in self.schedule.agents:
             if agent.unique_id == agent_id:
                 return agent
+    

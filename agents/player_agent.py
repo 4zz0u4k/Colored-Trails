@@ -2,48 +2,29 @@ from mesa import Agent
 from utils import find_best_path, compute_token_needs
 
 class PlayerAgent(Agent):
-    def __init__(self, unique_id, intial_position, intial_tokens, model):
-        super().__init__(unique_id, intial_position, intial_tokens, model)
+    def __init__(self, unique_id, intial_tokens, model):
+        super().__init__(model)
         self.tokens = intial_tokens
         self.blocked_steps = 0
-        self.goal_reached = False
-        self.pos = intial_position 
+        self.goal_reached = False 
         self.needs = {}
-
+        self.agent_id = unique_id
+        
     def step(self):
+        print(f"[*] Agent {self.agent_id} is thinking -------------------------------------------------------")
+
         if self.goal_reached or self.blocked_steps >= 3:
             return
 
-        path = find_best_path(self.pos, self.model.goal_pos, self.model.grid)
+        path = find_best_path(self.pos, self.model.goal_pos, self.model)
         self.needs = compute_token_needs(path, self.tokens, self.model)
         self.model.broadcast_needs(self.unique_id, self.needs)
         self.path_to_goal = path        
-            
-
-    def trade(self):
-        required_tokens = self.needs
-
-        excess_tokens = {}
-        for color, qty in self.tokens.items():
-            required = required_tokens.get(color, 0)
-            if qty > required:
-                excess_tokens[color] = qty - required
-
-        for other_id, other_needs in self.model.needs_pool.items():
-            if other_id == self.unique_id:
-                continue 
-
-            for color, needed_qty in other_needs.items():
-                offer_amount = min(needed_qty, excess_tokens.get(color, 0))
-                if offer_amount > 0:
-                    if other_id not in self.model.offers_pool:
-                        self.model.offers_pool[other_id] = {}
-                    self.model.offers_pool[other_id][color] = self.model.offers_pool[other_id].get(color, 0) + offer_amount
-
-                    excess_tokens[color] -= offer_amount
-                    self.tokens[color] -= offer_amount
+        print(f"[*] Agent {self.agent_id} infos : \nPath :  {path}\nNeeds : {self.needs}")    
     
     def advance(self):
+        self.trade()
+        
         if self.goal_reached:
             return
 
@@ -66,3 +47,29 @@ class PlayerAgent(Agent):
 
         if self.pos == self.model.goal_pos:
             self.goal_reached = True
+            
+    def trade(self):
+        print(f"[*] Agent {self.agent_id} is trading --------------------------------------------------------")
+        required_tokens = self.needs
+
+        excess_tokens = {}
+        for color, qty in self.tokens.items():
+            required = required_tokens.get(color, 0)
+            if qty > required:
+                excess_tokens[color] = qty - required
+
+        for other_id, other_needs in self.model.needs_pool.items():
+            if other_id == self.unique_id:
+                continue 
+
+            for color, needed_qty in other_needs.items():
+                offer_amount = min(needed_qty, excess_tokens.get(color, 0))
+                if offer_amount > 0:
+                    if other_id not in self.model.offers_pool:
+                        self.model.offers_pool[other_id] = {}
+                    self.model.offers_pool[other_id][color] = self.model.offers_pool[other_id].get(color, 0) + offer_amount
+
+                    excess_tokens[color] -= offer_amount
+                    self.tokens[color] -= offer_amount
+
+        print(f"[*] Offers pool after Agent {self.agent_id} traded   : \n{self.model.offers_pool}")

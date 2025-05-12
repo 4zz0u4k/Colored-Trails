@@ -1,9 +1,9 @@
 import networkx as nx
 from collections import defaultdict
 
-def find_best_path(start_pos, goal_pos, grid):
+def find_best_path(start_pos, goal_pos, model):
     # Find the shortest path
-    G = nx.grid_2d_graph(grid.grid_width, grid.grid_height)
+    G = nx.grid_2d_graph(model.grid_width, model.grid_height)
     return nx.shortest_path(G, source=start_pos, target=goal_pos)
 
 
