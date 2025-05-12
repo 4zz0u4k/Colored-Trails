@@ -13,8 +13,10 @@ class ColoredTrailsModel(Model):
         self.grid_height = 5
         self.grid = MultiGrid(self.grid_width, self.grid_height, torus=False)
         self.schedule = SimultaneousActivation(self)
-
-        # Define goal position (e.g., bottom-right corner)
+        self.running = False
+        self.needs_pool = {}
+        self.offers_pool = {}
+        # goal position (bottom-right corner)
         self.goal_pos = (6, 4)
 
         # Generate grid with random tile colors
@@ -24,24 +26,28 @@ class ColoredTrailsModel(Model):
                 color = random.choice(COLORS)
                 self.tile_colors[(x, y)] = color
 
-        # Place 3 agents — initial positions and tokens are up to you
-        self.agents_info = {
+        # 3 initial agents placements and tokens initialisation
+        self.agents_intial_infos = {
             0: {"pos": (0, 0), "tokens": {"green": 1, "yellow": 1, "purple": 2}},
             1: {"pos": (0, 4), "tokens": {"green": 2, "grey": 1}},
             2: {"pos": (3, 2), "tokens": {"purple": 1, "yellow": 2, "grey": 1}}
         }
 
-        for agent_id, info in self.agents_info.items():
-            agent = PlayerAgent(agent_id, self)
-            agent.tokens = info["tokens"]
+        for agent_id, info in self.agents_intial_infos.items():
+            agent = PlayerAgent(agent_id, info["pos"], info["tokens"], self)
             self.grid.place_agent(agent, info["pos"])
             self.schedule.add(agent)
 
     def step(self):
-        for agent in self.schedule.agents:
-            agent.needs = {}
 
         self.schedule.step()    # Agents decide on paths and exchange requests
+        # Assigning a random order for negociations
+        random_order = random.sample(range(0, len(self.agents_intial_infos)), len(self.agents_intial_infos))
+        for agent_id in random_order:
+            agent = self.get_agent_by_id(agent_id)
+            agent.trade(self.needs_pool, self.offers_pool)
+        self.needs_pool.clear()
+        self.offers_pool.clear()
         self.schedule.advance() # Agents make exchanges and move
 
         # End conditions
@@ -49,13 +55,11 @@ class ColoredTrailsModel(Model):
         if any(a.goal_reached for a in self.schedule.agents) or blocked_agents:
             self.running = False
     
-    def get_score(self):
-        if self.goal_reached:
-            return 100 + sum(5 * amt for amt in self.tokens.values())
-        else:
-            # Estimate path length remaining
-            path = find_best_path(self.pos, self.model.goal_pos, self.tokens, self.model.tile_colors)
-            tiles_remaining = len(path) - 1 if path else 7  # max penalty
-            return sum(5 * amt for amt in self.tokens.values()) - (10 * tiles_remaining)
 
+    def broadcast_needs(self, sender_id, needs):
+        self.needs_pool[sender_id] = needs
 
+    def get_agent_by_id(self, agent_id):
+        for agent in self.schedule.agents:
+            if agent.unique_id == agent_id:
+                return agent

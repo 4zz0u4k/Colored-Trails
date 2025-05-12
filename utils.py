@@ -1,22 +1,16 @@
 import networkx as nx
 from collections import defaultdict
 
-def find_best_path(start_pos, goal_pos, tokens, grid):
-    # Build a graph of valid paths based on token availability
-    G = nx.grid_2d_graph(grid.width, grid.height)
-    for (x, y) in G.nodes:
-        tile_color = grid[x][y]
-        if tokens.get(tile_color, 0) == 0 and (x, y) != start_pos:
-            G.remove_node((x, y))
-    try:
-        return nx.shortest_path(G, source=start_pos, target=goal_pos)
-    except nx.NetworkXNoPath:
-        return []
+def find_best_path(start_pos, goal_pos, grid):
+    # Find the shortest path
+    G = nx.grid_2d_graph(grid.grid_width, grid.grid_height)
+    return nx.shortest_path(G, source=start_pos, target=goal_pos)
 
-def compute_token_needs(path, current_tokens):
+
+def compute_token_needs(path, current_tokens, game_model):
     needed = defaultdict(int)
-    for pos in path[1:]:
-        color = path[pos]
+    for pos in path:
+        color = game_model.tile_colors[pos]
         needed[color] += 1
     for color in current_tokens:
         needed[color] = max(0, needed[color] - current_tokens.get(color, 0))
